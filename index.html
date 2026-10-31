@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0a1119" />
+    <meta
+      name="description"
+      content="BLOCKCRAFT — an infinite voxel sandbox you can explore, mine and build in your browser."
+    />
+    <title>BLOCKCRAFT — A Voxel Sandbox</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230d1b12'/%3E%3Cpath d='M32 8 56 21v22L32 56 8 43V21z' fill='%236fbf4a'/%3E%3Cpath d='M32 8 56 21 32 34 8 21z' fill='%238edb63'/%3E%3Cpath d='M32 34v22L8 43V21z' fill='%23539b38'/%3E%3Cpath d='M32 34v22l24-13V21z' fill='%23468731'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <canvas id="game" aria-label="Voxel world"></canvas>
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="underwater" aria-hidden="true"></div>
+
+    <!-- Loading -->
+    <div id="loading" class="overlay is-open">
+      <div class="loader">
+        <div class="loader-mark" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <div class="loader-title">BLOCKCRAFT</div>
+        <div class="loader-bar"><i id="loadBar"></i></div>
+        <div id="loadText" class="loader-text">Shaping the world…</div>
+      </div>
+    </div>
+
+    <!-- Main menu -->
+    <div id="menu" class="overlay">
+      <div class="menu-scrim"></div>
+      <div class="menu-inner">
+        <header class="menu-header">
+          <h1 class="logo"><span>BLOCK</span>CRAFT</h1>
+          <p class="tagline">An infinite voxel sandbox</p>
+        </header>
+
+        <section class="menu-panel">
+          <label class="seed-field">
+            <span>World seed</span>
+            <input id="seedInput" type="text" autocomplete="off" spellcheck="false" maxlength="32" />
+          </label>
+          <div class="menu-actions">
+            <button id="playBtn" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+              Play
+            </button>
+            <button id="randomBtn" class="btn btn-ghost" title="Generate a new seed">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3h4v4M3 21 21 3M21 17v4h-4M3 3l6 6M15 15l6 6" /></svg>
+              Randomize
+            </button>
+          </div>
+          <p class="menu-note">
+            Your world is saved in this browser. Type a seed to revisit a landscape, or roll a new one.
+          </p>
+        </section>
+
+        <section class="controls-card" aria-label="Controls">
+          <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Move</span></div>
+          <div><kbd>Mouse</kbd><span>Look</span></div>
+          <div><kbd>LMB</kbd><span>Mine</span></div>
+          <div><kbd>RMB</kbd><span>Place</span></div>
+          <div><kbd>Space</kbd><span>Jump</span></div>
+          <div><kbd>Shift</kbd><span>Sprint</span></div>
+          <div><kbd>E</kbd><span>Blocks</span></div>
+          <div><kbd>F</kbd><span>Fly</span></div>
+        </section>
+
+        <footer class="menu-footer">
+          <span>Procedural world · <b id="menuSeedLabel">seed</b></span>
+          <span>Built with Three.js</span>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Pause -->
+    <div id="pause" class="overlay">
+      <div class="menu-scrim"></div>
+      <div class="pause-inner">
+        <h2>Paused</h2>
+        <p class="pause-sub">The world is waiting.</p>
+        <div class="pause-actions">
+          <button id="resumeBtn" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+            Resume
+          </button>
+          <button id="pauseInvBtn" class="btn btn-ghost">Block palette</button>
+          <button id="soundBtn" class="btn btn-ghost">Sound: on</button>
+          <button id="newWorldBtn" class="btn btn-ghost">New world</button>
+        </div>
+        <label class="sens-field">
+          <span>Look sensitivity</span>
+          <input id="sensRange" type="range" min="0.4" max="2.4" step="0.1" value="1" />
+        </label>
+        <p id="pauseHint" class="pause-hint">Press <kbd>Esc</kbd> to resume · <kbd>F3</kbd> debug</p>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div id="crosshair" aria-hidden="true">
+        <i class="ch-dot"></i>
+        <svg class="ch-ring" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="15" pathLength="100"></circle>
+        </svg>
+      </div>
+
+      <div id="hudTopLeft" class="hud-chip">
+        <span id="coordText">0, 0, 0</span>
+        <span class="hud-sep"></span>
+        <span id="biomeText">Plains</span>
+      </div>
+
+      <div id="hudTopRight" class="hud-chip">
+        <span id="clockText">Day 1 · 08:00</span>
+        <button id="hudPauseBtn" class="hud-icon-btn" title="Pause" aria-label="Pause">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
+        </button>
+      </div>
+
+      <div id="toast" role="status"></div>
+
+      <div id="hotbar" aria-label="Hotbar"></div>
+
+      <div id="debug" aria-hidden="true"></div>
+
+      <div id="mobileControls">
+        <div id="joystick" aria-label="Movement joystick">
+          <div id="stick"><span></span></div>
+        </div>
+        <div id="lookZone" aria-label="Look area"></div>
+        <div id="touchActions">
+          <button class="touch-btn touch-jump" data-action="jump" aria-label="Jump">
+            <svg viewBox="0 0 24 24"><path d="M12 4l7 8h-4v8h-6v-8H5z" /></svg>
+          </button>
+          <button class="touch-btn touch-mine" data-action="mine" aria-label="Mine">
+            <svg viewBox="0 0 24 24"><path d="M4 20l8-8M14 4c2 0 4 1 5 3l-3 2-2-2 2-3M9 9l3 3" /></svg>
+          </button>
+          <button class="touch-btn touch-place" data-action="place" aria-label="Place block">
+            <svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /></svg>
+          </button>
+          <button class="touch-btn touch-fly" data-action="fly" aria-label="Toggle fly">
+            <svg viewBox="0 0 24 24"><path d="M12 3c4 4 6 8 6 12l-6-3-6 3c0-4 2-8 6-12z" /></svg>
+          </button>
+          <button class="touch-btn touch-inv" data-action="inventory" aria-label="Block palette">
+            <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory -->
+    <div id="inventory" class="overlay">
+      <div class="inv-inner">
+        <header class="inv-head">
+          <div>
+            <h2>Block palette</h2>
+            <p>Pick a block for the selected hotbar slot.</p>
+          </div>
+          <button id="invClose" class="inv-close" aria-label="Close">×</button>
+        </header>
+        <div id="invGrid" class="inv-grid"></div>
+        <footer class="inv-foot">
+          <span id="invHint">Click a block to equip it.</span>
+          <span id="invKeys"><kbd>E</kbd> or <kbd>Esc</kbd> to close</span>
+        </footer>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
